@@ -7,116 +7,113 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Мобильная оптимизация жестов */
     * {
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
       touch-action: none;
+      overscroll-behavior: none;
     }
     body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #05050f;
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background-color: #05050f; font-family: sans-serif;
     }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
+    canvas { display: block; width: 100%; height: 100%; }
+    
+    /* Стили для скролла в магазине */
+    .shop-scroll::-webkit-scrollbar { width: 4px; }
+    .shop-scroll::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 4px; }
   </style>
 </head>
-<body class="bg-[#05050f] text-white font-sans flex items-center justify-center">
+<body class="text-white flex items-center justify-center">
 
-  <div id="game-container" class="relative w-full h-full max-w-[500px] max-h-[900px] overflow-hidden shadow-2xl">
+  <div id="game-container" class="relative w-full h-full max-w-[500px] max-h-[900px] overflow-hidden shadow-2xl bg-[#05050f]">
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Внутриигровой HUD -->
-    <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none transition-opacity duration-300">
+    <!-- Игровой HUD -->
+    <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none hidden">
       <div class="flex flex-col gap-1">
-        <div class="flex items-center gap-2 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-full border border-cyan-500/30">
-          <span class="text-cyan-400 font-bold text-sm">ДИСТАНЦИЯ:</span>
+        <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-full border border-cyan-500/30">
+          <span class="text-cyan-400 font-bold text-sm">ОЧКИ:</span>
           <span id="scoreDisplay" class="font-extrabold text-cyan-300">0</span>
         </div>
-        <div class="flex items-center gap-2 bg-slate-900/80 backdrop-blur px-3 py-1 rounded-full border border-purple-500/30 w-fit">
+        <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1 rounded-full border border-purple-500/30 w-fit">
           <span class="text-purple-400 font-bold text-xs">ВОЛНА:</span>
           <span id="waveDisplay" class="font-bold text-purple-300 text-xs">1</span>
         </div>
       </div>
-      <div class="flex items-center gap-2 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-full border border-emerald-500/30">
-        <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M10 2l6 4.5-6 11.5L4 6.5 10 2z"/>
-        </svg>
-        <span id="coinsDisplay" class="font-extrabold text-emerald-300">0</span>
+      <div class="flex flex-col gap-1 items-end">
+        <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-full border border-emerald-500/30">
+          <span class="text-emerald-400 font-bold text-sm">💎</span>
+          <span id="coinsDisplay" class="font-extrabold text-emerald-300">0</span>
+        </div>
+        <!-- Индикаторы активных баффов -->
+        <div id="buffsDisplay" class="flex gap-1"></div>
       </div>
     </div>
 
     <!-- Полоска здоровья Босса -->
-    <div id="bossBarContainer" class="absolute top-16 left-1/2 -translate-x-1/2 w-3/4 max-w-[300px] bg-slate-950/80 border border-red-500/50 rounded-full p-1 hidden pointer-events-none">
-      <div class="text-[10px] text-red-400 text-center font-bold uppercase tracking-wider mb-0.5">Вражеский Дредноут</div>
-      <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
-        <div id="bossBarFill" class="bg-gradient-to-r from-red-600 to-orange-500 h-full w-full transition-all duration-75"></div>
+    <div id="bossBarContainer" class="absolute top-16 left-1/2 -translate-x-1/2 w-3/4 max-w-[300px] bg-slate-950/90 border border-red-500/50 rounded-full p-1 hidden pointer-events-none">
+      <div class="text-[10px] text-red-400 text-center font-bold uppercase mb-0.5">Вражеский Босс</div>
+      <div class="w-full bg-slate-900 rounded-full h-2.5">
+        <div id="bossBarFill" class="bg-red-500 h-full w-full"></div>
       </div>
     </div>
 
     <!-- Главное Меню -->
-    <div id="mainMenu" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 z-20">
-      <div class="text-center mt-8">
-        <h1 class="text-4xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 via-sky-300 to-purple-500 drop-shadow">
-          NEON SHOOTER
-        </h1>
-        <p class="text-xs text-slate-400 tracking-widest mt-1 uppercase">Telegram Edition</p>
-      </div>
-
-      <div class="flex flex-col items-center gap-3 w-full max-w-[280px]">
-        <button id="startBtn" class="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl font-black text-lg tracking-wider shadow-lg active:scale-95 transition-transform">
-          ИГРАТЬ
-        </button>
-
-        <button id="supportBtn" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-xl font-bold text-sm tracking-wide shadow active:scale-95 transition-transform flex items-center justify-center gap-2">
-          <span>⭐</span>
-          <span id="supportBtnText">Поддержать (+1000 💎)</span>
+    <div id="mainMenu" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 z-20">
+      <h1 class="text-4xl font-black italic tracking-wider text-cyan-400 mb-8 drop-shadow-md">NEON SHOOTER</h1>
+      
+      <div class="w-full max-w-[280px] flex flex-col gap-3">
+        <button id="startBtn" class="w-full py-4 bg-cyan-600 rounded-xl font-black text-lg tracking-wider active:scale-95 transition-transform">ИГРАТЬ</button>
+        <button id="shopBtn" class="w-full py-3 bg-purple-600 rounded-xl font-bold active:scale-95 transition-transform">МАГАЗИН</button>
+        <button id="supportBtn" class="w-full py-3 bg-amber-600 rounded-xl font-bold active:scale-95 transition-transform flex justify-center items-center gap-2">
+          <span id="supportBtnText">Поддержать автора (+1000 💎)</span>
         </button>
       </div>
+      <div class="mt-6 text-sm text-slate-400">Рекорд: <span id="highScoreDisplay" class="text-white font-bold">0</span></div>
+      <div class="mt-2 text-sm text-emerald-400 font-bold">Кристаллы: <span id="menuCoinsDisplay">0</span> 💎</div>
+    </div>
 
-      <div class="text-center text-xs text-slate-500 mb-2">
-        Рекорд: <span id="highScoreDisplay" class="text-slate-300 font-bold">0</span> м
+    <!-- Магазин -->
+    <div id="shopMenu" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center p-6 z-30 hidden">
+      <div class="flex justify-between w-full mb-4 items-center">
+        <h2 class="text-2xl font-black text-purple-400">МАГАЗИН</h2>
+        <div class="text-emerald-400 font-bold"><span id="shopCoinsDisplay">0</span> 💎</div>
       </div>
+      
+      <div class="flex gap-2 w-full mb-4">
+        <button id="tabSkins" class="flex-1 bg-purple-600 py-2 rounded-lg font-bold text-sm">Корабли</button>
+        <button id="tabWeapons" class="flex-1 bg-slate-700 py-2 rounded-lg font-bold text-sm">Оружие</button>
+      </div>
+
+      <div id="shopContent" class="w-full flex-1 overflow-y-auto shop-scroll flex flex-col gap-3 pb-4">
+        <!-- Товары генерируются JS -->
+      </div>
+
+      <button id="closeShopBtn" class="w-full mt-4 py-3 bg-slate-700 rounded-xl font-bold active:scale-95 transition-transform">НАЗАД В МЕНЮ</button>
     </div>
 
     <!-- Экран Game Over -->
-    <div id="gameOverScreen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
-      <h2 class="text-3xl font-black text-red-500 tracking-wider mb-2">КОРАБЛЬ УНИЧТОЖЕН</h2>
-      <p class="text-slate-400 text-sm mb-6">Космос ошибок не прощает</p>
-
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 w-full max-w-[280px] flex flex-col gap-2 mb-6">
-        <div class="flex justify-between text-sm">
-          <span class="text-slate-400">Пройдено:</span>
-          <span id="finalScore" class="font-bold text-cyan-400">0 м</span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-slate-400">Собрано кристаллов:</span>
-          <span id="finalCoins" class="font-bold text-emerald-400">0</span>
-        </div>
+    <div id="gameOverScreen" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 z-20 hidden">
+      <h2 class="text-3xl font-black text-red-500 mb-4">УНИЧТОЖЕН</h2>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 w-full max-w-[280px] mb-6">
+        <div class="flex justify-between text-sm mb-2"><span class="text-slate-400">Очки:</span><span id="finalScore" class="font-bold text-cyan-400">0</span></div>
+        <div class="flex justify-between text-sm"><span class="text-slate-400">Собрано:</span><span id="finalCoins" class="font-bold text-emerald-400">0 💎</span></div>
       </div>
-
-      <button id="restartBtn" class="w-full max-w-[280px] py-3.5 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-black text-slate-950 tracking-wider active:scale-95 transition-transform">
-        В БОЙ СНОВА
-      </button>
+      <button id="restartBtn" class="w-full max-w-[280px] py-4 bg-cyan-600 rounded-xl font-black active:scale-95 transition-transform">В МЕНЮ</button>
     </div>
   </div>
 
   <script>
-    // Инициализация Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
     }
 
     const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d', { alpha: false }); // false отключает лишний альфа-композитинг подложки
+    const ctx = canvas.getContext('2d', { alpha: false }); // false убирает прозрачность фона для FPS
     const container = document.getElementById('game-container');
 
     // UI элементы
@@ -124,104 +121,176 @@
     const scoreDisplay = document.getElementById('scoreDisplay');
     const waveDisplay = document.getElementById('waveDisplay');
     const coinsDisplay = document.getElementById('coinsDisplay');
+    const buffsDisplay = document.getElementById('buffsDisplay');
     const bossBarContainer = document.getElementById('bossBarContainer');
     const bossBarFill = document.getElementById('bossBarFill');
+    
+    // Экраны
     const mainMenu = document.getElementById('mainMenu');
+    const shopMenu = document.getElementById('shopMenu');
     const gameOverScreen = document.getElementById('gameOverScreen');
-    const highScoreDisplay = document.getElementById('highScoreDisplay');
-    const finalScore = document.getElementById('finalScore');
-    const finalCoins = document.getElementById('finalCoins');
+    
+    // Кнопки и текст
     const startBtn = document.getElementById('startBtn');
-    const restartBtn = document.getElementById('restartBtn');
+    const shopBtn = document.getElementById('shopBtn');
     const supportBtn = document.getElementById('supportBtn');
     const supportBtnText = document.getElementById('supportBtnText');
+    const closeShopBtn = document.getElementById('closeShopBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const tabSkins = document.getElementById('tabSkins');
+    const tabWeapons = document.getElementById('tabWeapons');
+    const shopContent = document.getElementById('shopContent');
 
-    // Настройки производительности (Ограничение DPR до 1.5 предотвращает троттлинг на экранах Retina)
-    let width = 0;
-    let height = 0;
-    const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+    // ОПТИМИЗАЦИЯ: Ограничиваем DPR (пиксели) для мобилок
+    let width = 0; let height = 0;
+    const DPR = Math.min(window.devicePixelRatio || 1, 1.5); 
 
     function resize() {
       const rect = container.getBoundingClientRect();
-      width = rect.width;
-      height = rect.height;
-      canvas.width = width * DPR;
-      canvas.height = height * DPR;
+      width = rect.width; height = rect.height;
+      canvas.width = width * DPR; canvas.height = height * DPR;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(DPR, DPR);
     }
     window.addEventListener('resize', resize);
     resize();
 
-    // Игровое состояние
-    let gameState = 'MENU';
-    let coins = parseInt(localStorage.getItem('neon_coins') || '0', 10);
-    let highScore = parseInt(localStorage.getItem('neon_high_score') || '0', 10);
-    let isSupporter = localStorage.getItem('neon_supporter') === 'true';
-    let score = 0;
-    let wave = 1;
-    let waveTimer = 0;
-    let scoreTimer = 0;
+    // Сохранения (База данных)
+    let savedData = JSON.parse(localStorage.getItem('neon_data')) || {
+      coins: 0, highScore: 0, isSupporter: false,
+      ownedSkins: ['skin_1'], equippedSkin: 'skin_1',
+      ownedWeapons: ['wpn_1'], equippedWeapon: 'wpn_1'
+    };
+    function saveData() { localStorage.setItem('neon_data', JSON.stringify(savedData)); }
 
-    coinsDisplay.innerText = coins;
-    highScoreDisplay.innerText = highScore;
+    // Конфиг магазина
+    const STORE = {
+      skins: [
+        { id: 'skin_1', name: 'Базовый', price: 0, color: '#0284c7' },
+        { id: 'skin_2', name: 'Красный Дьявол', price: 500, color: '#dc2626' },
+        { id: 'skin_3', name: 'Токсик', price: 1000, color: '#16a34a' },
+        { id: 'skin_4', name: 'Призрак', price: 2000, color: '#9333ea' }
+      ],
+      weapons: [
+        { id: 'wpn_1', name: 'Одинарный', price: 0, desc: '1 пуля', rate: 0.2 },
+        { id: 'wpn_2', name: 'Двойной', price: 800, desc: '2 пули', rate: 0.2 },
+        { id: 'wpn_3', name: 'Пулемет', price: 2000, desc: 'Быстрый огонь', rate: 0.1 },
+        { id: 'wpn_4', name: 'Тройной', price: 4000, desc: 'Веерный огонь', rate: 0.25 }
+      ]
+    };
 
-    if (isSupporter) {
-      supportBtnText.innerText = "Поддержка активна ✓";
-      supportBtn.classList.add('opacity-60', 'pointer-events-none');
+    let currentShopTab = 'skins';
+
+    function updateMenuUI() {
+      document.getElementById('highScoreDisplay').innerText = savedData.highScore;
+      document.getElementById('menuCoinsDisplay').innerText = savedData.coins;
+      document.getElementById('shopCoinsDisplay').innerText = savedData.coins;
+      
+      if (savedData.isSupporter) {
+        supportBtnText.innerText = "Поддержка активна ✓";
+        supportBtn.classList.add('opacity-50', 'pointer-events-none');
+      }
     }
 
+    // Поддержка
     supportBtn.addEventListener('click', () => {
-      if (!isSupporter) {
-        isSupporter = true;
-        coins += 1000;
-        localStorage.setItem('neon_coins', coins);
-        localStorage.setItem('neon_supporter', 'true');
-        coinsDisplay.innerText = coins;
-        supportBtnText.innerText = "Поддержка активна ✓";
-        supportBtn.classList.add('opacity-60', 'pointer-events-none');
+      if (!savedData.isSupporter) {
+        savedData.isSupporter = true;
+        savedData.coins += 1000;
+        saveData();
+        updateMenuUI();
       }
     });
 
-    // Игрок
-    const player = {
-      x: width / 2,
-      y: height - 120,
-      radius: 18,
-      targetX: width / 2,
-      targetY: height - 120,
-      shootTimer: 0,
-      shootInterval: 0.18
-    };
+    // Логика магазина
+    shopBtn.addEventListener('click', () => { mainMenu.classList.add('hidden'); shopMenu.classList.remove('hidden'); renderShop(); });
+    closeShopBtn.addEventListener('click', () => { shopMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); updateMenuUI(); });
+    
+    tabSkins.addEventListener('click', () => { currentShopTab = 'skins'; tabSkins.classList.replace('bg-slate-700','bg-purple-600'); tabWeapons.classList.replace('bg-purple-600','bg-slate-700'); renderShop(); });
+    tabWeapons.addEventListener('click', () => { currentShopTab = 'weapons'; tabWeapons.classList.replace('bg-slate-700','bg-purple-600'); tabSkins.classList.replace('bg-purple-600','bg-slate-700'); renderShop(); });
 
-    // Массивы сущностей
-    let bullets = [];
-    let enemyBullets = [];
-    let asteroids = [];
-    let crystals = [];
-    let boss = null;
-    let stars = [];
+    function renderShop() {
+      shopContent.innerHTML = '';
+      const items = STORE[currentShopTab];
+      const ownedList = currentShopTab === 'skins' ? savedData.ownedSkins : savedData.ownedWeapons;
+      const equipped = currentShopTab === 'skins' ? savedData.equippedSkin : savedData.equippedWeapon;
 
-    // Создание заднего фона (звёзды)
-    for (let i = 0; i < 40; i++) {
-      stars.push({
-        x: Math.random() * 500,
-        y: Math.random() * 900,
-        speed: 20 + Math.random() * 60,
-        size: Math.random() * 1.5 + 0.5
+      items.forEach(item => {
+        const isOwned = ownedList.includes(item.id);
+        const isEquipped = equipped === item.id;
+        
+        const div = document.createElement('div');
+        div.className = 'bg-slate-800 p-3 rounded-xl border flex justify-between items-center ' + (isEquipped ? 'border-cyan-500' : 'border-slate-700');
+        
+        let btnHtml = '';
+        if (isEquipped) {
+          btnHtml = `<button class="px-4 py-1.5 bg-cyan-600/50 text-cyan-200 rounded font-bold text-sm" disabled>Выбрано</button>`;
+        } else if (isOwned) {
+          btnHtml = `<button onclick="equipItem('${item.id}')" class="px-4 py-1.5 bg-cyan-600 rounded font-bold text-sm">Выбрать</button>`;
+        } else {
+          const canAfford = savedData.coins >= item.price;
+          btnHtml = `<button onclick="buyItem('${item.id}', ${item.price})" class="px-4 py-1.5 ${canAfford ? 'bg-emerald-600' : 'bg-slate-600'} rounded font-bold text-sm">${item.price} 💎</button>`;
+        }
+
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            ${currentShopTab === 'skins' ? `<div class="w-6 h-6 rounded-sm" style="background:${item.color}"></div>` : '💥'}
+            <div>
+              <div class="font-bold text-sm text-white">${item.name}</div>
+              ${item.desc ? `<div class="text-xs text-slate-400">${item.desc}</div>` : ''}
+            </div>
+          </div>
+          ${btnHtml}
+        `;
+        shopContent.appendChild(div);
       });
     }
 
-    // Управление тачем / пальцем
+    window.buyItem = function(id, price) {
+      if (savedData.coins >= price) {
+        savedData.coins -= price;
+        if (currentShopTab === 'skins') savedData.ownedSkins.push(id);
+        else savedData.ownedWeapons.push(id);
+        equipItem(id); // Сразу экипируем
+      }
+    };
+    
+    window.equipItem = function(id) {
+      if (currentShopTab === 'skins') savedData.equippedSkin = id;
+      else savedData.equippedWeapon = id;
+      saveData();
+      renderShop();
+      document.getElementById('shopCoinsDisplay').innerText = savedData.coins;
+    };
+
+    // --- ИГРОВАЯ ЛОГИКА ---
+    let gameState = 'MENU';
+    let score = 0, wave = 1, waveTimer = 0, scoreTimer = 0, sessionCoins = 0;
+    let stars = [], bullets = [], enemyBullets = [], asteroids = [], crystals = [], buffDrops = [];
+    let boss = null;
+    let activeBuffs = { shield: false, magnet: 0, x2: 0 }; // Таймеры для баффов
+
+    // Фон
+    for (let i = 0; i < 30; i++) {
+      stars.push({ x: Math.random() * 500, y: Math.random() * 900, speed: 20 + Math.random() * 50, size: Math.random() * 2 });
+    }
+
+    const player = {
+      x: width / 2, y: height - 100, radius: 18,
+      targetX: width / 2, targetY: height - 100,
+      shootTimer: 0,
+      color: '#0284c7', weaponConfig: STORE.weapons[0]
+    };
+
+    // Управление
     let isTouching = false;
     function handlePointer(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       player.targetX = clientX - rect.left;
-      player.targetY = clientY - rect.top - 30; // Небольшой сдвиг вверх, чтобы корабль не закрывался пальцем
+      player.targetY = clientY - rect.top - 40; // Сдвиг для пальца
     }
-
     canvas.addEventListener('touchstart', (e) => { isTouching = true; handlePointer(e); }, { passive: true });
     canvas.addEventListener('touchmove', (e) => { if (isTouching) handlePointer(e); }, { passive: true });
     canvas.addEventListener('touchend', () => { isTouching = false; });
@@ -229,255 +298,227 @@
     canvas.addEventListener('mousemove', (e) => { if (isTouching) handlePointer(e); });
     window.addEventListener('mouseup', () => { isTouching = false; });
 
-    // Сброс и запуск
     function startGame() {
-      score = 0;
-      wave = 1;
-      waveTimer = 0;
-      scoreTimer = 0;
-      bullets = [];
-      enemyBullets = [];
-      asteroids = [];
-      crystals = [];
-      boss = null;
-      bossBarContainer.classList.add('hidden');
+      score = 0; wave = 1; waveTimer = 0; scoreTimer = 0; sessionCoins = 0;
+      bullets = []; enemyBullets = []; asteroids = []; crystals = []; buffDrops = []; boss = null;
+      activeBuffs = { shield: false, magnet: 0, x2: 0 };
+      
+      // Настройка скина и оружия
+      const skin = STORE.skins.find(s => s.id === savedData.equippedSkin) || STORE.skins[0];
+      player.color = skin.color;
+      player.weaponConfig = STORE.weapons.find(w => w.id === savedData.equippedWeapon) || STORE.weapons[0];
+      player.x = width / 2; player.y = height - 100;
+      player.targetX = player.x; player.targetY = player.y;
 
-      player.x = width / 2;
-      player.y = height - 120;
-      player.targetX = player.x;
-      player.targetY = player.y;
-
-      scoreDisplay.innerText = '0';
-      waveDisplay.innerText = '1';
+      updateHUD();
       mainMenu.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
+      hud.classList.remove('hidden');
+      bossBarContainer.classList.add('hidden');
       gameState = 'PLAYING';
     }
 
     startBtn.addEventListener('click', startGame);
-    restartBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', () => {
+      gameOverScreen.classList.add('hidden');
+      mainMenu.classList.remove('hidden');
+      updateMenuUI();
+    });
 
     function gameOver() {
       gameState = 'GAMEOVER';
+      if (score > savedData.highScore) savedData.highScore = score;
+      savedData.coins += sessionCoins;
+      saveData();
+      
+      document.getElementById('finalScore').innerText = score;
+      document.getElementById('finalCoins').innerText = sessionCoins;
+      hud.classList.add('hidden');
       bossBarContainer.classList.add('hidden');
-      finalScore.innerText = `${score} м`;
-      finalCoins.innerText = crystals.length;
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('neon_high_score', highScore);
-        highScoreDisplay.innerText = highScore;
-      }
-      localStorage.setItem('neon_coins', coins);
       gameOverScreen.classList.remove('hidden');
     }
 
-    // Спавн астероидов
-    let asteroidSpawnTimer = 0;
-    function spawnAsteroid(dt) {
-      if (boss) return; // Во время босса обычные астероиды не летят
-      asteroidSpawnTimer += dt;
-      const interval = Math.max(0.4, 1.2 - wave * 0.08);
-      if (asteroidSpawnTimer > interval) {
-        asteroidSpawnTimer = 0;
-        const sizeType = Math.random();
-        let radius = 14;
-        let hp = 1;
-        if (sizeType > 0.8) {
-          radius = 34; // Большой
-          hp = 4;
-        } else if (sizeType > 0.45) {
-          radius = 22; // Средний
-          hp = 2;
-        }
-        asteroids.push({
-          x: Math.random() * (width - 40) + 20,
-          y: -40,
-          radius: radius,
-          hp: hp,
-          speed: (60 + Math.random() * 50) + wave * 8
-        });
-      }
+    function updateHUD() {
+      scoreDisplay.innerText = score;
+      waveDisplay.innerText = wave;
+      coinsDisplay.innerText = sessionCoins;
+      
+      // Иконки баффов
+      let buffsHtml = '';
+      if (activeBuffs.shield) buffsHtml += '<span class="text-blue-400">🛡️</span>';
+      if (activeBuffs.magnet > 0) buffsHtml += '<span class="text-purple-400">🧲</span>';
+      if (activeBuffs.x2 > 0) buffsHtml += '<span class="text-amber-400">2X</span>';
+      buffsDisplay.innerHTML = buffsHtml;
     }
 
-    // Спавн кристаллов из сбитых объектов
-    function spawnCrystals(x, y, radius) {
-      let count = 0;
-      if (radius > 30) {
-        count = Math.floor(Math.random() * 3) + 3; // 3 - 5
-      } else if (radius > 18) {
-        count = Math.floor(Math.random() * 2) + 1; // 1 - 2
-      } else {
-        count = Math.random() < 0.7 ? 1 : 0;       // 0 - 1
-      }
-
-      for (let i = 0; i < count; i++) {
-        crystals.push({
-          x: x + (Math.random() * 20 - 10),
-          y: y + (Math.random() * 20 - 10),
-          speedY: 60 + Math.random() * 40
-        });
-      }
-    }
-
-    // Босс
-    function spawnBoss() {
-      boss = {
-        x: width / 2,
-        y: -80,
-        targetY: 90,
-        radius: 44,
-        maxHp: 30 + wave * 15,
-        hp: 30 + wave * 15,
-        dir: 1,
-        speedX: 90,
-        shootTimer: 0
-      };
-      bossBarContainer.classList.remove('hidden');
-    }
-
-    // Основной цикл обновления на основе deltaTime
+    // --- ОСНОВНОЙ ЦИКЛ С DELTA TIME (Оптимизация скорости) ---
     let lastTime = performance.now();
-
     function gameLoop(now) {
-      const dt = Math.min((now - lastTime) / 1000, 0.05); // Ограничение dt для защиты от скачков кадров
+      const dt = Math.min((now - lastTime) / 1000, 0.05); // Ограничение скачков
       lastTime = now;
-
       update(dt);
       render();
-
       requestAnimationFrame(gameLoop);
     }
     requestAnimationFrame(gameLoop);
 
-    function update(dt) {
-      // Движение звезд фонового слоя
-      for (let i = 0; i < stars.length; i++) {
-        stars[i].y += stars[i].speed * dt;
-        if (stars[i].y > height) {
-          stars[i].y = 0;
-          stars[i].x = Math.random() * width;
-        }
+    let asteroidSpawnTimer = 0;
+    function spawnAsteroid(dt) {
+      if (boss) return;
+      asteroidSpawnTimer += dt;
+      const interval = Math.max(0.4, 1.2 - wave * 0.1);
+      if (asteroidSpawnTimer > interval) {
+        asteroidSpawnTimer = 0;
+        const rand = Math.random();
+        let radius = 14, hp = 1;
+        if (rand > 0.8) { radius = 35; hp = 4; }
+        else if (rand > 0.5) { radius = 22; hp = 2; }
+        asteroids.push({ x: Math.random()*(width-40)+20, y: -40, radius, hp, speed: 60 + wave*10 + Math.random()*40 });
+      }
+    }
+
+    function spawnLoot(x, y, radius, isBoss = false) {
+      // Кристаллы по ТЗ
+      let count = 0;
+      if (isBoss) count = 15;
+      else if (radius > 30) count = Math.floor(Math.random()*3)+3; // 3-5
+      else if (radius > 18) count = Math.floor(Math.random()*2)+1; // 1-2
+      else count = Math.random() < 0.7 ? 1 : 0; // 0-1
+
+      for (let i=0; i<count; i++) {
+        crystals.push({ x: x+(Math.random()*20-10), y: y+(Math.random()*20-10), speed: 70+Math.random()*30 });
       }
 
+      // Баффы (Шанс 5% с обычных, 100% с босса)
+      if (isBoss || Math.random() < 0.05) {
+        const types = ['shield', 'magnet', 'x2'];
+        const type = types[Math.floor(Math.random()*types.length)];
+        buffDrops.push({ x, y, type, speed: 50 });
+      }
+    }
+
+    function update(dt) {
+      // Звезды
+      stars.forEach(s => { s.y += s.speed * dt; if (s.y > height) { s.y = 0; s.x = Math.random()*width; }});
+      
       if (gameState !== 'PLAYING') return;
 
-      // Начисление дистанции: +1 в секунду
+      // Таймеры
+      if (activeBuffs.magnet > 0) activeBuffs.magnet -= dt;
+      if (activeBuffs.x2 > 0) activeBuffs.x2 -= dt;
+      if (activeBuffs.magnet <= 0 || activeBuffs.x2 <= 0) updateHUD();
+
       scoreTimer += dt;
       if (scoreTimer >= 1.0) {
         scoreTimer = 0;
-        score += 1;
-        scoreDisplay.innerText = score;
+        score += activeBuffs.x2 > 0 ? 2 : 1;
+        updateHUD();
       }
 
-      // Смена волн
       waveTimer += dt;
       if (waveTimer >= 30) {
-        waveTimer = 0;
-        wave += 1;
-        waveDisplay.innerText = wave;
+        waveTimer = 0; wave++; updateHUD();
         if (wave % 3 === 0 && !boss) {
-          spawnBoss();
+          boss = { x: width/2, y: -60, radius: 45, maxHp: 30 + wave*10, hp: 30 + wave*10, dir: 1, timer: 0 };
+          bossBarContainer.classList.remove('hidden');
         }
       }
 
-      // Плавное следование корабля за пальцем
-      player.x += (player.targetX - player.x) * (20 * dt);
-      player.y += (player.targetY - player.y) * (20 * dt);
+      // Движение корабля
+      player.x += (player.targetX - player.x) * (15 * dt);
+      player.y += (player.targetY - player.y) * (15 * dt);
       player.x = Math.max(player.radius, Math.min(width - player.radius, player.x));
       player.y = Math.max(player.radius, Math.min(height - player.radius, player.y));
 
-      // Стрельба игрока
+      // Стрельба
       player.shootTimer += dt;
-      if (player.shootTimer >= player.shootInterval) {
+      if (player.shootTimer >= player.weaponConfig.rate) {
         player.shootTimer = 0;
-        bullets.push({ x: player.x - 7, y: player.y - 12, speed: 450 });
-        bullets.push({ x: player.x + 7, y: player.y - 12, speed: 450 });
+        const wpn = player.weaponConfig.id;
+        if (wpn === 'wpn_1') {
+          bullets.push({x: player.x, y: player.y-10, vx: 0, vy: -500});
+        } else if (wpn === 'wpn_2') {
+          bullets.push({x: player.x-8, y: player.y-10, vx: 0, vy: -500});
+          bullets.push({x: player.x+8, y: player.y-10, vx: 0, vy: -500});
+        } else if (wpn === 'wpn_3') {
+          bullets.push({x: player.x + (Math.random()*10-5), y: player.y-10, vx: 0, vy: -600});
+        } else if (wpn === 'wpn_4') {
+          bullets.push({x: player.x, y: player.y-10, vx: 0, vy: -500});
+          bullets.push({x: player.x-10, y: player.y-10, vx: -100, vy: -480});
+          bullets.push({x: player.x+10, y: player.y-10, vx: 100, vy: -480});
+        }
       }
 
-      // Полет пуль
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        bullets[i].y -= bullets[i].speed * dt;
+      // Обновление пуль
+      for (let i=bullets.length-1; i>=0; i--) {
+        bullets[i].x += bullets[i].vx * dt;
+        bullets[i].y += bullets[i].vy * dt;
         if (bullets[i].y < -20) bullets.splice(i, 1);
       }
 
-      // Полет пуль босса
-      for (let i = enemyBullets.length - 1; i >= 0; i--) {
-        enemyBullets[i].y += enemyBullets[i].speed * dt;
-        // Проверка столкновения с игроком
-        const dist = Math.hypot(enemyBullets[i].x - player.x, enemyBullets[i].y - player.y);
-        if (dist < player.radius + 3) {
-          gameOver();
-          return;
+      for (let i=enemyBullets.length-1; i>=0; i--) {
+        enemyBullets[i].y += 250 * dt;
+        if (Math.hypot(enemyBullets[i].x - player.x, enemyBullets[i].y - player.y) < player.radius - 2) {
+          enemyBullets.splice(i, 1);
+          if (activeBuffs.shield) { activeBuffs.shield = false; updateHUD(); }
+          else { gameOver(); return; }
         }
-        if (enemyBullets[i].y > height + 20) enemyBullets.splice(i, 1);
+        if (enemyBullets[i].y > height) enemyBullets.splice(i, 1);
       }
 
-      // Спавн и движение астероидов
+      // Астероиды
       spawnAsteroid(dt);
-      for (let i = asteroids.length - 1; i >= 0; i--) {
+      for (let i=asteroids.length-1; i>=0; i--) {
         const a = asteroids[i];
         a.y += a.speed * dt;
-
-        // Столкновение корабля с астероидом
-        if (Math.hypot(a.x - player.x, a.y - player.y) < a.radius + player.radius - 2) {
-          gameOver();
-          return;
+        
+        // Столкновение
+        if (Math.hypot(a.x - player.x, a.y - player.y) < a.radius + player.radius - 4) {
+          if (activeBuffs.shield) {
+             activeBuffs.shield = false; updateHUD(); asteroids.splice(i,1); continue;
+          } else { gameOver(); return; }
         }
 
-        // Попадание пуль в астероид
-        for (let j = bullets.length - 1; j >= 0; j--) {
-          const b = bullets[j];
-          if (Math.hypot(a.x - b.x, a.y - b.y) < a.radius + 4) {
+        // Попадание
+        for (let j=bullets.length-1; j>=0; j--) {
+          if (Math.hypot(a.x - bullets[j].x, a.y - bullets[j].y) < a.radius) {
             bullets.splice(j, 1);
-            a.hp -= 1;
+            a.hp--;
             if (a.hp <= 0) {
-              spawnCrystals(a.x, a.y, a.radius);
-              score += 1;
-              scoreDisplay.innerText = score;
+              spawnLoot(a.x, a.y, a.radius);
+              score += activeBuffs.x2 > 0 ? 2 : 1;
+              updateHUD();
               asteroids.splice(i, 1);
               break;
             }
           }
         }
-
-        if (a && a.y > height + 50) asteroids.splice(i, 1);
+        if (a && a.y > height) asteroids.splice(i, 1);
       }
 
-      // Поведение Босса
+      // Босс
       if (boss) {
-        if (boss.y < boss.targetY) {
-          boss.y += 60 * dt;
-        } else {
-          boss.x += boss.speedX * boss.dir * dt;
-          if (boss.x > width - boss.radius - 10) boss.dir = -1;
-          if (boss.x < boss.radius + 10) boss.dir = 1;
-
-          boss.shootTimer += dt;
-          const bossFireRate = boss.hp < (boss.maxHp * 0.5) ? 0.45 : 0.8;
-          if (boss.shootTimer >= bossFireRate) {
-            boss.shootTimer = 0;
-            enemyBullets.push({ x: boss.x - 16, y: boss.y + 20, speed: 200 });
-            enemyBullets.push({ x: boss.x + 16, y: boss.y + 20, speed: 200 });
+        if (boss.y < 80) boss.y += 50 * dt;
+        else {
+          boss.x += 100 * boss.dir * dt;
+          if (boss.x > width - boss.radius || boss.x < boss.radius) boss.dir *= -1;
+          
+          boss.timer += dt;
+          const rate = boss.hp < boss.maxHp/2 ? 0.4 : 0.8;
+          if (boss.timer > rate) {
+            boss.timer = 0;
+            enemyBullets.push({x: boss.x - 20, y: boss.y + 20});
+            enemyBullets.push({x: boss.x + 20, y: boss.y + 20});
           }
         }
 
-        // Попадание пуль в босса
-        for (let j = bullets.length - 1; j >= 0; j--) {
-          const b = bullets[j];
-          if (Math.hypot(boss.x - b.x, boss.y - b.y) < boss.radius + 6) {
+        for (let j=bullets.length-1; j>=0; j--) {
+          if (Math.hypot(boss.x - bullets[j].x, boss.y - bullets[j].y) < boss.radius) {
             bullets.splice(j, 1);
-            boss.hp -= 1;
-            bossBarFill.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
-
+            boss.hp--;
+            bossBarFill.style.width = `${Math.max(0, boss.hp/boss.maxHp*100)}%`;
             if (boss.hp <= 0) {
-              // Разгром босса: много кристаллов
-              for (let c = 0; c < 16; c++) {
-                crystals.push({
-                  x: boss.x + (Math.random() * 50 - 25),
-                  y: boss.y + (Math.random() * 50 - 25),
-                  speedY: 40 + Math.random() * 50
-                });
-              }
+              spawnLoot(boss.x, boss.y, boss.radius, true);
               boss = null;
               bossBarContainer.classList.add('hidden');
               break;
@@ -486,122 +527,94 @@
         }
       }
 
-      // Движение и сбор кристаллов
-      for (let i = crystals.length - 1; i >= 0; i--) {
+      // Лут (Кристаллы и Баффы)
+      for (let i=crystals.length-1; i>=0; i--) {
         const c = crystals[i];
-        c.y += c.speedY * dt;
-
-        // Магнит к игроку при приближении
-        const dist = Math.hypot(c.x - player.x, c.y - player.y);
-        if (dist < 80) {
-          c.x += (player.x - c.x) * (10 * dt);
-          c.y += (player.y - c.y) * (10 * dt);
+        c.y += c.speed * dt;
+        if (activeBuffs.magnet > 0 && Math.hypot(c.x-player.x, c.y-player.y) < 120) {
+          c.x += (player.x - c.x) * 10 * dt;
+          c.y += (player.y - c.y) * 10 * dt;
         }
+        if (Math.hypot(c.x - player.x, c.y - player.y) < player.radius) {
+          sessionCoins++; updateHUD(); crystals.splice(i, 1);
+        } else if (c.y > height) crystals.splice(i, 1);
+      }
 
-        if (dist < player.radius + 12) {
-          crystals.splice(i, 1);
-          coins += 1;
-          coinsDisplay.innerText = coins;
-        } else if (c.y > height + 20) {
-          crystals.splice(i, 1);
-        }
+      for (let i=buffDrops.length-1; i>=0; i--) {
+        const b = buffDrops[i];
+        b.y += b.speed * dt;
+        if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + 10) {
+          if (b.type === 'shield') activeBuffs.shield = true;
+          if (b.type === 'magnet') activeBuffs.magnet = 15; // 15 сек
+          if (b.type === 'x2') activeBuffs.x2 = 15; // 15 сек
+          updateHUD(); buffDrops.splice(i, 1);
+        } else if (b.y > height) buffDrops.splice(i, 1);
       }
     }
 
-    // Оптимизированный рендеринг без shadowBlur
+    // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (БЕЗ SHADOWBLUR) ---
     function render() {
       ctx.fillStyle = '#05050f';
       ctx.fillRect(0, 0, width, height);
 
-      // Отрисовка звёзд
       ctx.fillStyle = '#475569';
-      for (let i = 0; i < stars.length; i++) {
-        ctx.fillRect(stars[i].x, stars[i].y, stars[i].size, stars[i].size);
-      }
+      stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
 
-      if (gameState === 'MENU') return;
+      if (gameState !== 'PLAYING') return;
 
-      // Пули игрока
-      ctx.fillStyle = '#38bdf8';
-      for (let i = 0; i < bullets.length; i++) {
-        ctx.fillRect(bullets[i].x - 1.5, bullets[i].y - 6, 3, 10);
-      }
-
-      // Пули врагов
-      ctx.fillStyle = '#ef4444';
-      for (let i = 0; i < enemyBullets.length; i++) {
-        ctx.beginPath();
-        ctx.arc(enemyBullets[i].x, enemyBullets[i].y, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      // Баффы на арене
+      buffDrops.forEach(b => {
+        ctx.fillStyle = b.type === 'shield' ? '#60a5fa' : b.type === 'magnet' ? '#c084fc' : '#fbbf24';
+        ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(b.type === 'x2' ? '2X' : b.type === 'shield' ? 'S' : 'M', b.x, b.y+3);
+      });
 
       // Кристаллы
-      ctx.fillStyle = '#34d399';
-      for (let i = 0; i < crystals.length; i++) {
-        const c = crystals[i];
-        ctx.beginPath();
-        ctx.moveTo(c.x, c.y - 6);
-        ctx.lineTo(c.x + 5, c.y);
-        ctx.lineTo(c.x, c.y + 6);
-        ctx.lineTo(c.x - 5, c.y);
-        ctx.closePath();
-        ctx.fill();
-      }
+      ctx.fillStyle = '#10b981';
+      crystals.forEach(c => {
+        ctx.beginPath(); ctx.moveTo(c.x, c.y-6); ctx.lineTo(c.x+5, c.y); 
+        ctx.lineTo(c.x, c.y+6); ctx.lineTo(c.x-5, c.y); ctx.fill();
+      });
+
+      // Пули
+      ctx.fillStyle = '#38bdf8';
+      bullets.forEach(b => ctx.fillRect(b.x-2, b.y-8, 4, 16));
+      ctx.fillStyle = '#ef4444';
+      enemyBullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill(); });
 
       // Астероиды
-      ctx.fillStyle = '#334155';
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 2;
-      for (let i = 0; i < asteroids.length; i++) {
-        const a = asteroids[i];
-        ctx.beginPath();
-        ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
+      asteroids.forEach(a => {
+        ctx.fillStyle = '#334155'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      });
 
       // Босс
       if (boss) {
-        ctx.fillStyle = '#7f1d1d';
-        ctx.strokeStyle = '#f87171';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(boss.x - 14, boss.y + 12, 6, 12);
-        ctx.fillRect(boss.x + 8, boss.y + 12, 6, 12);
+        ctx.fillStyle = '#7f1d1d'; ctx.strokeStyle = '#f87171';
+        ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(boss.x-15, boss.y+10, 6, 15); ctx.fillRect(boss.x+9, boss.y+10, 6, 15);
       }
 
-      // Игрок (Неоновый истребитель)
+      // Игрок
       ctx.save();
       ctx.translate(player.x, player.y);
-
-      // Стилизованный корабль
-      ctx.fillStyle = '#0284c7';
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, -18);
-      ctx.lineTo(16, 16);
-      ctx.lineTo(0, 10);
-      ctx.lineTo(-16, 16);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Двигатель
+      if (activeBuffs.shield) {
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, player.radius + 8, 0, Math.PI*2); ctx.stroke();
+      }
+      
+      ctx.fillStyle = player.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(16, 14); ctx.lineTo(0, 8); ctx.lineTo(-16, 14); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      
+      // Огонь из двигателя
       ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.moveTo(-5, 12);
-      ctx.lineTo(0, 20 + Math.random() * 4);
-      ctx.lineTo(5, 12);
-      ctx.fill();
-
+      ctx.beginPath(); ctx.moveTo(-6, 10); ctx.lineTo(0, 20 + Math.random()*6); ctx.lineTo(6, 10); ctx.fill();
       ctx.restore();
     }
+
+    updateMenuUI(); // Инициализация меню
   </script>
 </body>
 </html>
