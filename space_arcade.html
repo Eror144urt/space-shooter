@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Galactic Shooter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Jura:wght@600&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030308;
+            font-family: 'Jura', sans-serif;
+            color: #fff;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            box-shadow: 0 0 50px rgba(0, 150, 255, 0.05);
+        }
+
+        /* Sci-Fi UI Panels */
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1), inset 0 0 20px rgba(0, 255, 255, 0.05);
+            border-radius: 20px;
+        }
+
+        .screen-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+
+        /* Neon Buttons */
+        .btn-neon {
+            background: rgba(0, 200, 255, 0.1);
+            color: #fff;
+            border: 1px solid #00c8ff;
+            box-shadow: 0 0 10px inset rgba(0, 200, 255, 0.3), 0 0 10px rgba(0, 200, 255, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease-in-out;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .btn-neon:hover {
+            background: #00c8ff;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.8), 0 0 40px rgba(0, 200, 255, 0.4);
+            transform: scale(1.02);
+        }
+        .btn-gold { border-color: #fbbf24; box-shadow: 0 0 10px inset rgba(251, 191, 36, 0.3), 0 0 10px rgba(251, 191, 36, 0.3); color: #fbbf24; }
+        .btn-gold:hover { background: #fbbf24; color: #000; box-shadow: 0 0 20px rgba(251, 191, 36, 0.8); }
+        .btn-purple { border-color: #a855f7; box-shadow: 0 0 10px inset rgba(168, 85, 247, 0.3), 0 0 10px rgba(168, 85, 247, 0.3); color: #e9d5ff; }
+        .btn-purple:hover { background: #a855f7; color: #fff; box-shadow: 0 0 20px rgba(168, 85, 247, 0.8); }
+
+        .btn-disabled { border-color: #4b5563; box-shadow: none; color: #6b7280; cursor: not-allowed; background: transparent; }
+        .btn-disabled:hover { background: transparent; transform: none; box-shadow: none; color: #6b7280; }
+
+        /* HUD */
+        #ui-hud {
+            position: absolute; top: 0; left: 0; right: 0;
+            max-width: 600px; margin: 0 auto; padding: 1.5rem;
+            display: flex; justify-content: space-between;
+            pointer-events: none; z-index: 5;
+        }
+
+        /* Shop Grid & Tabs */
+        .shop-tabs { display: flex; width: 100%; border-bottom: 2px solid rgba(0, 255, 255, 0.2); margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 8px 4px; text-align: center; cursor: pointer; color: #6b7280; font-weight: bold; transition: 0.2s; font-size: 0.9rem; }
+        .tab-btn.active { color: #00c8ff; border-bottom: 2px solid #00c8ff; text-shadow: 0 0 10px rgba(0,200,255,0.5); }
+
+        .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 500px; max-height: 50vh; overflow-y: auto; padding: 5px; }
+        .shop-grid::-webkit-scrollbar { width: 4px; }
+        .shop-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        .shop-grid::-webkit-scrollbar-thumb { background: #00c8ff; border-radius: 4px; }
+
+        .shop-item { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .shop-item.equipped { border-color: #00c8ff; background: rgba(0, 200, 255, 0.15); box-shadow: 0 0 15px rgba(0, 200, 255, 0.2); }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <div id="ui-hud" class="hidden">
+            <div class="flex flex-col">
+                <div class="text-xl orbitron font-black text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">ОЧКИ: <span id="hud-score">0</span></div>
+                <div class="text-lg text-emerald-300 mt-1 font-bold flex items-center gap-2">
+                    ◈ <span id="hud-crystals">0</span>
+                </div>
+                <div class="text-sm text-pink-400 mt-1 font-bold orbitron shadow-pink-500/50">ВОЛНА: <span id="hud-wave">1</span></div>
+            </div>
+            <div id="hud-buffs" class="flex flex-col items-end gap-2 text-sm font-bold"></div>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="ui-menu" class="screen-overlay glass-panel p-8 max-w-sm w-11/12 mx-auto">
+            <h1 class="text-4xl md:text-5xl orbitron font-black text-center mb-1 text-transparent bg-clip-text bg-gradient-to-b from-cyan-300 to-blue-600 drop-shadow-[0_0_15px_rgba(0,200,255,0.6)]">
+                НЕОНОВЫЙ<br>ШУТЕР
+            </h1>
+            <p class="text-center text-cyan-200/50 mb-8 text-sm">Уничтожай астероиды. Собирай кристаллы.</p>
+            
+            <div class="flex flex-col gap-4 w-full">
+                <button id="btn-play" class="btn-neon w-full py-4 text-xl tracking-widest">СТАРТ</button>
+                <button id="btn-shop" class="btn-neon btn-purple w-full py-3 flex justify-center items-center gap-2">
+                    АНГАР 
+                    <span class="text-xs bg-black/60 px-2 py-1 rounded text-emerald-300 border border-emerald-500/30">
+                        <span id="menu-crystal-display">0</span> ◈
+                    </span>
+                </button>
+                <button id="btn-support" class="btn-neon btn-gold w-full py-3 flex justify-center items-center gap-2 mt-2">
+                    ПОДДЕРЖАТЬ АВТОРА <span class="text-xs bg-black/60 px-2 py-1 rounded text-emerald-300 border border-emerald-500/30">БОНУС!</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="ui-support-modal" class="screen-overlay glass-panel p-8 max-w-sm w-11/12 mx-auto hidden" style="z-index: 100;">
+            <h2 class="text-2xl font-bold text-yellow-400 orbitron text-center mb-4 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]">СПОНСОРСТВО</h2>
+            <p class="text-center text-gray-200 mb-6 text-sm">Спасибо за поддержку игры! Ваш бонус спонсора: <br><br><span class="text-3xl font-bold text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]">+1000 ◈</span></p>
+            <button id="btn-support-close" class="btn-neon w-full py-3">ПОЛУЧИТЬ</button>
+        </div>
+
+        <!-- Shop -->
+        <div id="ui-shop" class="screen-overlay glass-panel p-6 max-w-md w-11/12 mx-auto hidden">
+            <div class="w-full flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-cyan-400 orbitron">АНГАР</h2>
+                <div class="text-lg font-bold text-emerald-300 bg-black/40 px-3 py-1 rounded-lg border border-emerald-500/30">
+                    <span id="shop-crystal-display">0</span> ◈
+                </div>
+            </div>
+            
+            <div class="shop-tabs">
+                <div class="tab-btn active" id="tab-ships">КОРАБЛИ</div>
+                <div class="tab-btn" id="tab-weapons">ОРУЖИЕ</div>
+                <div class="tab-btn" id="tab-maps">ГАЛАКТИКИ</div>
+            </div>
+
+            <div id="shop-grid" class="shop-grid mb-6"></div>
+            
+            <button id="btn-shop-back" class="btn-neon w-full">В ГЛАВНОЕ МЕНЮ</button>
+        </div>
+
+        <!-- Game Over -->
+        <div id="ui-gameover" class="screen-overlay glass-panel p-8 max-w-sm w-11/12 mx-auto hidden">
+            <h1 class="text-4xl orbitron font-black text-red-500 mb-2 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] text-center">РАЗРУШЕН!</h1>
+            
+            <div class="text-center mb-6 bg-black/40 w-full py-4 rounded-xl border border-red-500/20 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]">
+                <p class="text-xs text-red-300/70 tracking-widest">ИТОГОВЫЕ ОЧКИ</p>
+                <p id="gameover-score" class="text-4xl orbitron font-bold text-white mb-2">0</p>
+                <p class="text-xs text-emerald-300/70 tracking-widest">СОБРАНО КРИСТАЛЛОВ</p>
+                <p id="gameover-crystals" class="text-xl font-bold text-emerald-400">+0 ◈</p>
+            </div>
+            
+            <div class="flex flex-col gap-3 w-full">
+                <button id="btn-revive" class="btn-neon btn-gold w-full py-3 text-sm flex items-center justify-center gap-2 animate-pulse">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"></path></svg>
+                    ПРОДОЛЖИТЬ ЗА РЕКЛАМУ
+                </button>
+                <button id="btn-restart" class="btn-neon w-full py-3 text-sm">НОВАЯ ИГРА</button>
+                <button id="btn-gameover-menu" class="btn-neon btn-disabled w-full py-2 text-sm shadow-none">В МЕНЮ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const createImg = (svgString) => {
+            const img = new Image();
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgString);
+            return img;
+        };
+
+        const ASSETS = {
+            shipAlpha: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#7dd3fc;stop-opacity:1" /><stop offset="100%" style="stop-color:#0284c7;stop-opacity:1" /></linearGradient></defs><path d="M50 10 L85 85 L50 70 L15 85 Z" fill="url(#g1)" stroke="#38bdf8" stroke-width="2"/><path d="M50 20 L70 80 L50 65 L30 80 Z" fill="#e0f2fe"/><circle cx="50" cy="85" r="8" fill="#bae6fd" filter="blur(2px)"/></svg>`),
+            shipStealth: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#c084fc;stop-opacity:1" /><stop offset="100%" style="stop-color:#7e22ce;stop-opacity:1" /></linearGradient></defs><path d="M50 5 L65 50 L95 65 L65 75 L50 95 L35 75 L5 65 L35 50 Z" fill="url(#g2)" stroke="#a855f7" stroke-width="2"/><path d="M50 25 L55 55 L75 65 L55 70 L50 85 L45 70 L25 65 L45 55 Z" fill="#f3e8ff"/><circle cx="50" cy="50" r="10" fill="#000"/></svg>`),
+            shipHeavy: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#fde047;stop-opacity:1" /><stop offset="100%" style="stop-color:#b45309;stop-opacity:1" /></linearGradient></defs><path d="M30 20 L70 20 L80 90 L60 80 L50 90 L40 80 L20 90 Z" fill="url(#g3)" stroke="#fbbf24" stroke-width="2"/><path d="M40 30 L60 30 L65 70 L50 65 L35 70 Z" fill="#fef3c7"/><rect x="15" y="40" width="10" height="40" rx="3" fill="#ea580c"/><rect x="75" y="40" width="10" height="40" rx="3" fill="#ea580c"/></svg>`),
+            
+            asteroid1: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M 25 15 L 60 10 L 85 30 L 90 65 L 70 90 L 30 85 L 10 55 Z" fill="#374151" stroke="#4b5563" stroke-width="4"/><circle cx="40" cy="35" r="12" fill="#1f2937"/><circle cx="70" cy="60" r="8" fill="#1f2937"/><circle cx="30" cy="70" r="10" fill="#1f2937"/><path d="M 30 20 Q 50 40 70 30" stroke="#1f2937" stroke-width="3" fill="none"/></svg>`),
+            asteroid2: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M 15 30 L 40 10 L 80 20 L 90 50 L 75 85 L 35 90 L 10 65 Z" fill="#1f2937" stroke="#374151" stroke-width="4"/><circle cx="50" cy="50" r="16" fill="#111827"/><circle cx="25" cy="45" r="7" fill="#111827"/><circle cx="65" cy="75" r="9" fill="#111827"/><path d="M 20 60 Q 40 80 60 60" stroke="#111827" stroke-width="3" fill="none"/></svg>`),
+            
+            crystal: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L85 40 L50 95 L15 40 Z" fill="#10b981" stroke="#34d399" stroke-width="3"/><path d="M50 5 L85 40 L50 50 Z" fill="#6ee7b7" opacity="0.8"/><path d="M50 5 L15 40 L50 50 Z" fill="#047857" opacity="0.6"/><path d="M15 40 L85 40" stroke="#34d399" stroke-width="2"/></svg>`),
+            
+            boss1: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="gb" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#7f1d1d;stop-opacity:1" /><stop offset="100%" style="stop-color:#dc2626;stop-opacity:1" /></linearGradient></defs><path d="M10 20 L90 20 L95 40 L70 80 L50 60 L30 80 L5 40 Z" fill="url(#gb)" stroke="#f87171" stroke-width="2"/><circle cx="50" cy="40" r="12" fill="#fef08a"/><rect x="25" y="45" width="10" height="20" fill="#991b1b"/><rect x="65" y="45" width="10" height="20" fill="#991b1b"/></svg>`),
+
+            buffMagnet: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#2e1065" stroke="#a855f7" stroke-width="4"/><path d="M35 70 L35 45 A15 15 0 0 1 65 45 L65 70 L80 70 L80 45 A30 30 0 0 0 20 45 L20 70 Z" fill="#ef4444"/><rect x="20" y="60" width="15" height="10" fill="#d1d5db"/><rect x="65" y="60" width="15" height="10" fill="#d1d5db"/></svg>`),
+            buffShield: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#082f49" stroke="#38bdf8" stroke-width="4"/><path d="M50 20 L80 35 L80 60 Q80 85 50 90 Q20 85 20 60 L20 35 Z" fill="#0284c7"/><path d="M50 25 L73 38 L73 58 Q73 78 50 82 Q27 78 27 58 L27 38 Z" fill="#7dd3fc"/></svg>`),
+            buff2x: createImg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#831843" stroke="#f472b6" stroke-width="4"/><text x="50" y="65" font-family="Arial" font-weight="900" font-size="45" fill="#fff" text-anchor="middle">2X</text></svg>`)
+        };
+
+        const STORE_DATA = {
+            ships: {
+                'alpha': { id: 'alpha', name: 'Стрела', cost: 0, color: '#38bdf8', shape: 'arrow', asset: ASSETS.shipAlpha },
+                'stealth': { id: 'stealth', name: 'Призрак', cost: 200, color: '#a855f7', shape: 'stealth', asset: ASSETS.shipStealth },
+                'heavy': { id: 'heavy', name: 'Крейсер', cost: 600, color: '#fbbf24', shape: 'heavy', asset: ASSETS.shipHeavy }
+            },
+            weapons: {
+                'laser': { id: 'laser', name: 'Базовый лазер', cost: 0, type: 'laser', color: '#ef4444', desc: '1 луч', rate: 20, damage: 1 },
+                'double': { id: 'double', name: 'Двойной бластер', cost: 300, type: 'double', color: '#3b82f6', desc: '2 луча', rate: 18, damage: 1 },
+                'spread': { id: 'spread', name: 'Плазмо-веер', cost: 800, type: 'spread', color: '#10b981', desc: '3 луча, разброс', rate: 25, damage: 1.5 }
+            },
+            maps: {
+                'deepspace': { id: 'deepspace', name: 'Глубокий космос', cost: 0, desc: 'Синий сектор', colors: ['#080a14', '#38bdf8', '#ffffff'] },
+                'crimson': { id: 'crimson', name: 'Алая туманность', cost: 250, desc: 'Красный сектор', colors: ['#140508', '#fb7185', '#fda4af'] },
+                'toxic': { id: 'toxic', name: 'Токсичный пояс', cost: 500, desc: 'Зеленый сектор', colors: ['#051408', '#34d399', '#a7f3d0'] }
+            }
+        };
+
+        let savedData = {
+            crystals: 0,
+            unlockedShips: ['alpha'], equippedShip: 'alpha',
+            unlockedWeapons: ['laser'], equippedWeapon: 'laser',
+            unlockedMaps: ['deepspace'], equippedMap: 'deepspace',
+            hasDonated: false
+        };
+        
+        function loadSave() {
+            try {
+                const data = localStorage.getItem('spaceArcadeSave');
+                if (data) savedData = { ...savedData, ...JSON.parse(data) };
+            } catch(e) {}
+            updateGlobalCrystalDisplay();
+
+            if (savedData.hasDonated) {
+                document.getElementById('btn-support').innerHTML = 'ПОДДЕРЖАТЬ АВТОРА <span class="text-xs bg-black/60 px-2 py-1 rounded text-emerald-300 border border-emerald-500/30">КУПЛЕНО</span>';
+            }
+        }
+
+        function saveGame() {
+            try { localStorage.setItem('spaceArcadeSave', JSON.stringify(savedData)); } catch(e) {}
+            updateGlobalCrystalDisplay();
+        }
+
+        function updateGlobalCrystalDisplay() {
+            document.getElementById('menu-crystal-display').innerText = savedData.crystals;
+            document.getElementById('shop-crystal-display').innerText = savedData.crystals;
+        }
+
+        // --- Управление Магазином ---
+        let currentShopTab = 'ships';
+
+        document.getElementById('tab-ships').onclick = () => switchTab('ships');
+        document.getElementById('tab-weapons').onclick = () => switchTab('weapons');
+        document.getElementById('tab-maps').onclick = () => switchTab('maps');
+
+        function switchTab(tab) {
+            currentShopTab = tab;
+            document.getElementById('tab-ships').classList.toggle('active', tab === 'ships');
+            document.getElementById('tab-weapons').classList.toggle('active', tab === 'weapons');
+            document.getElementById('tab-maps').classList.toggle('active', tab === 'maps');
+            renderShop();
+        }
+
+        function renderShop() {
+            const grid = document.getElementById('shop-grid');
+            grid.innerHTML = '';
+            
+            const items = STORE_DATA[currentShopTab];
+            let unlockedList, equippedId;
+            if (currentShopTab === 'ships') { unlockedList = savedData.unlockedShips; equippedId = savedData.equippedShip; }
+            else if (currentShopTab === 'weapons') { unlockedList = savedData.unlockedWeapons; equippedId = savedData.equippedWeapon; }
+            else { unlockedList = savedData.unlockedMaps; equippedId = savedData.equippedMap; }
+
+            Object.values(items).forEach(item => {
+                const isUnlocked = unlockedList.includes(item.id);
+                const isEquipped = equippedId === item.id;
+                
+                const card = document.createElement('div');
+                card.className = `shop-item ${isEquipped ? 'equipped' : ''}`;
+                
+                let visualHTML = '';
+                if (currentShopTab === 'ships') {
+                    visualHTML = `<div class="h-12 w-12 flex items-center justify-center"><img src="${item.asset.src}" class="max-h-full max-w-full drop-shadow-[0_0_8px_${item.color}]" /></div>`;
+                } else if (currentShopTab === 'weapons') {
+                    visualHTML = `<div class="h-12 w-12 flex items-center justify-center rounded-full border-2" style="border-color:${item.color}; box-shadow: 0 0 10px ${item.color} inset, 0 0 10px ${item.color}"></div>`;
+                } else {
+                    visualHTML = `<div class="h-12 w-full rounded-lg border border-white/20" style="background: linear-gradient(to bottom, ${item.colors[0]}, #000);"></div>`;
+                }
+
+                let btnHTML = '';
+                if (isEquipped) {
+                    btnHTML = `<button class="btn-neon w-full text-xs py-2 border-cyan-400 text-cyan-400 cursor-default shadow-[0_0_10px_rgba(34,211,238,0.4)]" disabled>ВЫБРАНО</button>`;
+                } else if (isUnlocked) {
+                    btnHTML = `<button class="btn-neon w-full text-xs py-2" onclick="equipItem('${currentShopTab}', '${item.id}')">ЭКИПИРОВАТЬ</button>`;
+                } else {
+                    const canAfford = savedData.crystals >= item.cost;
+                    btnHTML = `<button class="btn-neon ${canAfford ? 'btn-purple' : 'btn-disabled'} w-full text-xs py-2 flex justify-center gap-1" ${!canAfford ? 'disabled' : ''} onclick="buyItem('${currentShopTab}', '${item.id}')">КУПИТЬ ${item.cost} ◈</button>`;
+                }
+
+                card.innerHTML = `
+                    ${visualHTML}
+                    <div class="text-center w-full flex-1 flex flex-col justify-between mt-2">
+                        <h3 class="font-bold text-xs mb-1 text-gray-200">${item.name}</h3>
+                        ${item.desc ? `<p class="text-[10px] text-gray-400 mb-2">${item.desc}</p>` : ''}
+                        ${btnHTML}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        window.buyItem = function(tab, id) {
+            const item = STORE_DATA[tab][id];
+            if (savedData.crystals >= item.cost) {
+                savedData.crystals -= item.cost;
+                if (tab === 'ships') { savedData.unlockedShips.push(id); savedData.equippedShip = id; }
+                else if (tab === 'weapons') { savedData.unlockedWeapons.push(id); savedData.equippedWeapon = id; }
+                else { savedData.unlockedMaps.push(id); savedData.equippedMap = id; }
+                saveGame(); renderShop();
+            }
+        };
+
+        window.equipItem = function(tab, id) {
+            if (tab === 'ships' && savedData.unlockedShips.includes(id)) savedData.equippedShip = id;
+            if (tab === 'weapons' && savedData.unlockedWeapons.includes(id)) savedData.equippedWeapon = id;
+            if (tab === 'maps' && savedData.unlockedMaps.includes(id)) savedData.equippedMap = id;
+            saveGame(); renderShop();
+        };
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let GAME_WIDTH = canvas.width = canvas.offsetWidth || 400;
+        let GAME_HEIGHT = canvas.height = canvas.offsetHeight || 700;
+
+        window.addEventListener('resize', () => {
+            GAME_WIDTH = canvas.width = canvas.offsetWidth;
+            GAME_HEIGHT = canvas.height = canvas.offsetHeight;
+        });
+
+        const STATES = { MENU: 0, SHOP: 1, PLAYING: 2, GAMEOVER: 3 };
+        let currentState = STATES.MENU;
+        
+        let score = 0; let sessionCrystals = 0;
+        let frames = 0; let difficulty = 1; let screenShake = 0;
+        let bgOffset = 0;
+        
+        let wave = 1; let waveTimer = 0; let isBossActive = false; let bossWarningTime = 0;
+
+        let entities = []; let projectiles = []; let enemyProjectiles = []; let particles = []; let floatingTexts = []; let stars = [];
+
+        let pointer = { x: GAME_WIDTH / 2, y: GAME_HEIGHT - 120, active: false };
+
+        function updatePointer(e, isTouch) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clientX = isTouch ? e.touches[0].clientX : e.clientX;
+            let clientY = isTouch ? e.touches[0].clientY : e.clientY;
+            
+            pointer.x = (clientX - rect.left) * scaleX;
+            pointer.y = Math.max(50, Math.min(GAME_HEIGHT - 50, (clientY - rect.top) * scaleY));
+        }
+
+        canvas.addEventListener('mousedown', e => { if(currentState === STATES.PLAYING) { pointer.active = true; updatePointer(e, false); }});
+        canvas.addEventListener('mousemove', e => { if(pointer.active && currentState === STATES.PLAYING) updatePointer(e, false); });
+        canvas.addEventListener('mouseup', () => pointer.active = false);
+        canvas.addEventListener('mouseleave', () => pointer.active = false);
+
+        canvas.addEventListener('touchstart', e => { if(currentState === STATES.PLAYING) { pointer.active = true; updatePointer(e, true); }}, {passive: true});
+        canvas.addEventListener('touchmove', e => { if(pointer.active && currentState === STATES.PLAYING) updatePointer(e, true); }, {passive: true});
+        canvas.addEventListener('touchend', () => pointer.active = false);
+
+        class Player {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = GAME_WIDTH / 2; this.y = GAME_HEIGHT - 120;
+                this.vx = 0; this.vy = 0; this.size = 20;
+                
+                this.magnetTime = 0; this.shieldActive = false; this.doubleTime = 0; this.invulnTime = 0;
+                this.skin = STORE_DATA.ships[savedData.equippedShip];
+                this.weapon = STORE_DATA.weapons[savedData.equippedWeapon];
+                this.fireTimer = 0;
+            }
+            update() {
+                if (pointer.active) {
+                    this.vx += (pointer.x - this.x) * 0.02;
+                    this.vy += (pointer.y - this.y) * 0.02;
+                }
+                this.vx *= 0.8; this.vy *= 0.8; // Friction
+                this.x += this.vx; this.y += this.vy;
+                this.x = Math.max(this.size, Math.min(GAME_WIDTH - this.size, this.x));
+                this.y = Math.max(this.size, Math.min(GAME_HEIGHT - this.size, this.y));
+
+                // Engine Particles
+                if (frames % 3 === 0) {
+                    particles.push(new Particle(this.x + (Math.random()-0.5)*10, this.y + 15, -this.vx*0.2, 5+Math.random()*3, this.skin.color, 4, 0.05));
+                }
+
+                // Auto Shooting
+                this.fireTimer--;
+                if (this.fireTimer <= 0) {
+                    this.fireTimer = this.weapon.rate;
+                    this.shoot();
+                }
+
+                if (this.magnetTime > 0) this.magnetTime--;
+                if (this.doubleTime > 0) this.doubleTime--;
+                if (this.invulnTime > 0) this.invulnTime--;
+            }
+            shoot() {
+                const dmg = this.weapon.damage;
+                const col = this.weapon.color;
+                if (this.weapon.type === 'laser') {
+                    projectiles.push(new Laser(this.x, this.y - 20, 0, -12, dmg, col));
+                } else if (this.weapon.type === 'double') {
+                    projectiles.push(new Laser(this.x - 12, this.y - 15, 0, -12, dmg, col));
+                    projectiles.push(new Laser(this.x + 12, this.y - 15, 0, -12, dmg, col));
+                } else if (this.weapon.type === 'spread') {
+                    projectiles.push(new Laser(this.x, this.y - 20, 0, -12, dmg, col));
+                    projectiles.push(new Laser(this.x - 10, this.y - 15, -3, -11, dmg, col));
+                    projectiles.push(new Laser(this.x + 10, this.y - 15, 3, -11, dmg, col));
+                }
+            }
+            draw(ctx) {
+                if (this.invulnTime > 0 && Math.floor(frames / 5) % 2 === 0) return;
+                
+                ctx.save(); ctx.translate(this.x, this.y);
+                
+                if (this.shieldActive) {
+                    ctx.beginPath(); ctx.arc(0, 0, this.size * 1.8, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 2;
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#00c8ff'; ctx.stroke();
+                }
+                if (this.magnetTime > 0) {
+                    ctx.beginPath(); ctx.arc(0, 0, 150, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.05)'; ctx.fill();
+                }
+
+                ctx.rotate(this.vx * 0.03); // Tilt
+                
+                // Draw Ship Image
+                ctx.shadowBlur = 15; ctx.shadowColor = this.skin.color;
+                ctx.drawImage(this.skin.asset, -this.size * 1.5, -this.size * 1.5, this.size * 3, this.size * 3);
+                ctx.shadowBlur = 0;
+                
+                ctx.restore();
+            }
+        }
+
+        class Laser {
+            constructor(x, y, vx, vy, dmg, color) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.dmg = dmg; this.color = color;
+                this.markedForDeletion = false; this.radius = 4;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.y < -50 || this.x < -50 || this.x > GAME_WIDTH + 50) this.markedForDeletion = true;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - this.vx*1.5, this.y - this.vy*1.5);
+                ctx.strokeStyle = this.color; ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Asteroid {
+            constructor(x, size, speedY) {
+                this.x = x; this.y = -50; this.size = size;
+                this.vx = (Math.random() - 0.5) * 1.5; this.vy = speedY;
+                this.hp = size > 30 ? 5 : 2; 
+                this.maxHp = this.hp;
+                this.rotation = Math.random() * Math.PI;
+                this.rotSpeed = (Math.random() - 0.5) * 0.02;
+                this.asset = Math.random() > 0.5 ? ASSETS.asteroid1 : ASSETS.asteroid2;
+                this.markedForDeletion = false;
+                this.hitTimer = 0;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy; this.rotation += this.rotSpeed;
+                if (this.hitTimer > 0) this.hitTimer--;
+                if (this.y > GAME_HEIGHT + this.size) this.markedForDeletion = true;
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
+                
+                if (this.hitTimer > 0) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.filter = 'brightness(200%)';
+                }
+                
+                ctx.shadowBlur = 5; ctx.shadowColor = '#ef4444';
+                ctx.drawImage(this.asset, -this.size*1.2, -this.size*1.2, this.size*2.4, this.size*2.4);
+                ctx.shadowBlur = 0;
+                
+                ctx.filter = 'none';
+                ctx.globalCompositeOperation = 'source-over';
+                
+                // HP Bar
+                ctx.rotate(-this.rotation); // unrotate for HP bar
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = '#444'; ctx.fillRect(-15, -this.size - 10, 30, 4);
+                    ctx.fillStyle = '#ef4444'; ctx.fillRect(-15, -this.size - 10, 30 * (this.hp/this.maxHp), 4);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Drop {
+            constructor(type, x, y) {
+                this.type = type; this.x = x; this.y = y;
+                this.vy = 2; this.markedForDeletion = false; this.size = 12;
+                if (type === 'buff') {
+                    const buffs = ['magnet', 'shield', '2x'];
+                    this.buffType = buffs[Math.floor(Math.random()*buffs.length)];
+                    this.size = 18;
+                }
+            }
+            update() {
+                if (player.magnetTime > 0 && this.type === 'crystal') {
+                    let dx = player.x - this.x; let dy = player.y - this.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < 200) { this.x += (dx/dist)*8; this.y += (dy/dist)*8; return; }
+                }
+                this.y += this.vy;
+                if (this.y > GAME_HEIGHT + 30) this.markedForDeletion = true;
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (this.type === 'crystal') {
+                    ctx.rotate(frames * 0.05);
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#34d399';
+                    ctx.drawImage(ASSETS.crystal, -this.size*1.2, -this.size*1.2, this.size*2.4, this.size*2.4);
+                } else {
+                    let color = this.buffType==='magnet' ? '#c084fc' : (this.buffType==='shield' ? '#38bdf8' : '#f472b6');
+                    ctx.shadowBlur = 15; ctx.shadowColor = color;
+                    let asset = this.buffType==='magnet' ? ASSETS.buffMagnet : (this.buffType==='shield' ? ASSETS.buffShield : ASSETS.buff2x);
+                    ctx.drawImage(asset, -this.size*1.2, -this.size*1.2, this.size*2.4, this.size*2.4);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, vx, vy, color, size, decay) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.size = size; this.life = 1.0; this.decay = decay;
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+        
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x; this.y = y; this.text = text; this.color = color; this.life = 1.0;
+            }
+            update() { this.y -= 1; this.life -= 0.03; }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color;
+                ctx.font = 'bold 18px Jura'; ctx.textAlign = 'center';
+                ctx.shadowBlur = 5; ctx.shadowColor = '#000'; ctx.fillText(this.text, this.x, this.y);
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class EnemyLaser {
+            constructor(x, y, vx, vy) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.markedForDeletion = false; this.radius = 5;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.y > GAME_HEIGHT + 50 || this.x < -50 || this.x > GAME_WIDTH + 50) this.markedForDeletion = true;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = '#f87171';
+                ctx.shadowBlur = 10; ctx.shadowColor = '#dc2626';
+                ctx.fill(); ctx.shadowBlur = 0;
+            }
+        }
+
+        class Boss {
+            constructor(wave) {
+                this.x = GAME_WIDTH / 2; this.y = -100;
+                this.size = 65;
+                this.maxHp = 100 + (wave * 50);
+                this.hp = this.maxHp;
+                this.vx = 2;
+                this.vy = 1.5;
+                this.hitTimer = 0;
+                this.fireTimer = 0;
+                this.markedForDeletion = false;
+            }
+            update() {
+                if (this.y < 120) this.y += this.vy; // Плавно выплывает сверху
+                else {
+                    this.x += this.vx;
+                    if (this.x < this.size || this.x > GAME_WIDTH - this.size) this.vx *= -1; // Движение влево-вправо
+                    
+                    this.fireTimer--;
+                    if (this.fireTimer <= 0) {
+                        this.fireTimer = Math.max(30, 80 - wave * 5); // Чем дальше, тем быстрее стреляет
+                        enemyProjectiles.push(new EnemyLaser(this.x - 30, this.y + 20, 0, 6));
+                        enemyProjectiles.push(new EnemyLaser(this.x + 30, this.y + 20, 0, 6));
+                        
+                        // Атака в ярости (когда ХП меньше половины)
+                        if (this.hp < this.maxHp * 0.5 && Math.random() > 0.5) {
+                            enemyProjectiles.push(new EnemyLaser(this.x, this.y + 40, (Math.random()-0.5)*3, 7));
+                        }
+                    }
+                }
+                if (this.hitTimer > 0) this.hitTimer--;
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.x, this.y);
+                
+                // Легкое покачивание
+                ctx.rotate(Math.sin(frames * 0.05) * 0.05);
+
+                if (this.hitTimer > 0) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.filter = 'brightness(200%)';
+                }
+                
+                ctx.shadowBlur = 25; ctx.shadowColor = '#dc2626';
+                ctx.drawImage(ASSETS.boss1, -this.size*1.2, -this.size*1.2, this.size*2.4, this.size*2.4);
+                
+                ctx.filter = 'none';
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.restore();
+            }
+        }
+
+        const player = new Player();
+
+        function spawnEntities() {
+            if (isBossActive) return; // Во время битвы с боссом астероиды не падают
+
+            let baseRate = Math.max(30, 90 - Math.floor(score / 150));
+            if (frames % baseRate === 0) {
+                let x = Math.random() * (GAME_WIDTH - 60) + 30;
+                let size = Math.random() > 0.8 ? 40 : 20 + Math.random()*15;
+                let speed = (1 + Math.random() * 1.5) * difficulty;
+                entities.push(new Asteroid(x, size, speed));
+            }
+        }
+
+        function createExplosion(x, y, colorStr, amount=15) {
+            for(let i=0; i<amount; i++) particles.push(new Particle(x, y, (Math.random()-0.5)*8, (Math.random()-0.5)*8, colorStr, Math.random()*4+2, 0.03));
+        }
+
+        function handleCollisions() {
+            // Projectiles vs Asteroids
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i];
+                for (let j = entities.length - 1; j >= 0; j--) {
+                    let ent = entities[j];
+                    if (ent instanceof Asteroid || ent instanceof Boss) {
+                        let dist = Math.hypot(p.x - ent.x, p.y - ent.y);
+                        if (dist < ent.size) {
+                            ent.hp -= p.dmg;
+                            ent.hitTimer = 4; // Flash white
+                            if (ent instanceof Asteroid) ent.y -= 3; // knockback
+                            
+                            p.markedForDeletion = true;
+                            createExplosion(p.x, p.y, p.color, 4);
+                            floatingTexts.push(new FloatingText(ent.x + (Math.random()-0.5)*20, ent.y - 15, `-${p.dmg}`, '#fff'));
+                            
+                            if (ent.hp <= 0) {
+                                ent.markedForDeletion = true;
+                                
+                                if (ent instanceof Asteroid) {
+                                    createExplosion(ent.x, ent.y, '#ef4444', 15);
+                                    score += player.doubleTime > 0 ? 2 : 1; 
+                                    screenShake = 3;
+                                    
+                                    let dropsCount = 0;
+                                    if (ent.size > 35) { dropsCount = Math.floor(Math.random() * 3) + 3; } 
+                                    else if (ent.size > 25) { dropsCount = Math.floor(Math.random() * 2) + 1; } 
+                                    else { dropsCount = Math.random() > 0.3 ? 1 : 0; }
+                                    
+                                    for(let d = 0; d < dropsCount; d++) {
+                                        let offsetX = (Math.random() - 0.5) * 30; let offsetY = (Math.random() - 0.5) * 30;
+                                        entities.push(new Drop('crystal', ent.x + offsetX, ent.y + offsetY));
+                                    }
+                                    if(Math.random() < 0.1) entities.push(new Drop('buff', ent.x, ent.y));
+                                } 
+                                else if (ent instanceof Boss) {
+                                    // Уничтожение босса
+                                    isBossActive = false;
+                                    score += 100 * wave; // Много очков за босса
+                                    screenShake = 30;
+                                    createExplosion(ent.x, ent.y, '#f87171', 100);
+                                    
+                                    // Выпадает куча кристаллов и 100% бафф
+                                    for(let d = 0; d < 20; d++) {
+                                        let offsetX = (Math.random() - 0.5) * 80; let offsetY = (Math.random() - 0.5) * 80;
+                                        entities.push(new Drop('crystal', ent.x + offsetX, ent.y + offsetY));
+                                    }
+                                    entities.push(new Drop('buff', ent.x, ent.y));
+                                    floatingTexts.push(new FloatingText(GAME_WIDTH/2, GAME_HEIGHT/2, `БОСС ПОВЕРЖЕН!`, '#34d399'));
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Вражеские снаряды против Игрока
+            const pR = player.size * 0.8;
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                let p = enemyProjectiles[i];
+                let dist = Math.hypot(p.x - player.x, p.y - player.y);
+                if (dist < pR + p.radius) {
+                    p.markedForDeletion = true;
+                    if (player.invulnTime > 0) {} 
+                    else if (player.shieldActive) {
+                        player.shieldActive = false; player.invulnTime = 90; screenShake = 15;
+                        createExplosion(player.x, player.y, '#38bdf8', 20);
+                    } else {
+                        triggerGameOver(); return;
+                    }
+                }
+            }
+
+            // Player vs Entities (Asteroids/Drops/Boss)
+            for (let i = entities.length - 1; i >= 0; i--) {
+                let ent = entities[i];
+                let dist = Math.hypot(ent.x - player.x, ent.y - player.y);
+                
+                if (dist < pR + (ent.size || 15)) {
+                    if (ent instanceof Drop) {
+                        if (ent.type === 'crystal') {
+                            sessionCrystals++;
+                            floatingTexts.push(new FloatingText(ent.x, ent.y, "+1", '#34d399'));
+                        } else {
+                            if (ent.buffType === 'magnet') { player.magnetTime = 600; floatingTexts.push(new FloatingText(player.x, player.y - 40, "МАГНИТ", '#c084fc')); }
+                            if (ent.buffType === 'shield') { player.shieldActive = true; floatingTexts.push(new FloatingText(player.x, player.y - 40, "ЩИТ", '#38bdf8')); }
+                            if (ent.buffType === '2x') { player.doubleTime = 600; floatingTexts.push(new FloatingText(player.x, player.y - 40, "2X ОЧКИ", '#f472b6')); }
+                        }
+                        ent.markedForDeletion = true;
+                    } else if (ent instanceof Asteroid || ent instanceof Boss) {
+                        if (player.invulnTime > 0) {} 
+                        else if (player.shieldActive) {
+                            player.shieldActive = false; player.invulnTime = 90; screenShake = 15;
+                            if (ent instanceof Asteroid) {
+                                ent.markedForDeletion = true; createExplosion(ent.x, ent.y, '#38bdf8', 20);
+                            } else {
+                                createExplosion(player.x, player.y, '#38bdf8', 20); // О босса просто бьемся
+                            }
+                        } else {
+                            triggerGameOver(); return;
+                        }
+                    }
+                }
+            }
+            
+            projectiles = projectiles.filter(p => !p.markedForDeletion);
+            enemyProjectiles = enemyProjectiles.filter(p => !p.markedForDeletion);
+            entities = entities.filter(e => !e.markedForDeletion);
+            particles = particles.filter(p => p.life > 0);
+            floatingTexts = floatingTexts.filter(t => t.life > 0);
+        }
+
+        function initStars() {
+            stars = [];
+            for(let i=0; i<80; i++) stars.push({ x: Math.random() * GAME_WIDTH, y: Math.random() * GAME_HEIGHT, s: Math.random() * 2 + 1, speed: Math.random() * 2 + 0.5 });
+        }
+
+        function drawBackground() {
+            const mapInfo = STORE_DATA.maps[savedData.equippedMap];
+            
+            // Если босс жив, делаем фон слегка красным и зловещим
+            if (isBossActive) {
+                ctx.fillStyle = '#1a0505'; 
+            } else {
+                ctx.fillStyle = mapInfo.colors[0]; 
+            }
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            bgOffset += difficulty * 1.5;
+            stars.forEach(st => {
+                st.y += st.speed * difficulty;
+                if (st.y > GAME_HEIGHT) { st.y = 0; st.x = Math.random() * GAME_WIDTH; }
+                ctx.fillStyle = (Math.random() > 0.5) ? mapInfo.colors[1] : mapInfo.colors[2];
+                ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+                ctx.fillRect(st.x, st.y, st.s, st.s);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').innerText = score;
+            document.getElementById('hud-crystals').innerText = sessionCrystals;
+            document.getElementById('hud-wave').innerText = wave;
+            
+            let buffsHTML = '';
+            if (player.magnetTime > 0) buffsHTML += `<div class="text-purple-400 bg-black/50 border border-purple-500/30 px-2 py-1 rounded shadow-lg shadow-purple-500/20">МАГНИТ ${(player.magnetTime/60).toFixed(1)}с</div>`;
+            if (player.doubleTime > 0) buffsHTML += `<div class="text-pink-400 bg-black/50 border border-pink-500/30 px-2 py-1 rounded shadow-lg shadow-pink-500/20">X2 ${(player.doubleTime/60).toFixed(1)}с</div>`;
+            if (player.shieldActive) buffsHTML += `<div class="text-cyan-400 bg-black/50 border border-cyan-500/30 px-2 py-1 rounded shadow-lg shadow-cyan-500/20">ЩИТ АКТИВЕН</div>`;
+            document.getElementById('hud-buffs').innerHTML = buffsHTML;
+        }
+
+        function update() {
+            if (currentState !== STATES.PLAYING) return;
+
+            frames++;
+
+            if (frames % 60 === 0) {
+                score += player.doubleTime > 0 ? 2 : 1;
+            }
+
+            // Логика Волн
+            if (!isBossActive) {
+                waveTimer++;
+                // Каждые 30 секунд (1800 кадров) наступает новая волна
+                if (waveTimer > 1800) {
+                    wave++;
+                    waveTimer = 0;
+                    
+                    if (wave % 3 === 0) {
+                        // Каждую 3-ю волну появляется БОСС
+                        isBossActive = true;
+                        bossWarningTime = 180; // 3 секунды сирены
+                        entities.push(new Boss(wave));
+                    } else {
+                        difficulty += 0.2;
+                        floatingTexts.push(new FloatingText(GAME_WIDTH/2, GAME_HEIGHT/3, `ВОЛНА ${wave}`, '#f472b6'));
+                    }
+                }
+            }
+
+            spawnEntities();
+            player.update();
+            projectiles.forEach(p => p.update());
+            enemyProjectiles.forEach(p => p.update());
+            entities.forEach(e => e.update());
+            particles.forEach(p => p.update());
+            floatingTexts.forEach(t => t.update());
+            
+            handleCollisions();
+
+            // Draw
+            ctx.save();
+            if (screenShake > 0) {
+                ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+                screenShake *= 0.85; if(screenShake < 0.5) screenShake = 0;
+            }
+
+            drawBackground();
+            
+            // Отрисовка ВАРНИНГА
+            if (bossWarningTime > 0) {
+                bossWarningTime--;
+                ctx.fillStyle = `rgba(220, 38, 38, ${Math.abs(Math.sin(frames * 0.1)) * 0.5})`;
+                ctx.fillRect(0,0,GAME_WIDTH, GAME_HEIGHT);
+                ctx.fillStyle = '#ef4444'; ctx.font = '900 36px Orbitron'; ctx.textAlign = 'center';
+                ctx.shadowBlur = 20; ctx.shadowColor = '#dc2626';
+                ctx.fillText('ВНИМАНИЕ! БОСС', GAME_WIDTH/2, GAME_HEIGHT/2);
+                ctx.shadowBlur = 0;
+            }
+
+            entities.forEach(e => { if(e instanceof Drop) e.draw(ctx); });
+            projectiles.forEach(p => p.draw(ctx));
+            enemyProjectiles.forEach(p => p.draw(ctx));
+            player.draw(ctx);
+            entities.forEach(e => { if(e instanceof Asteroid || e instanceof Boss) e.draw(ctx); });
+            particles.forEach(p => p.draw(ctx));
+            floatingTexts.forEach(t => t.draw(ctx));
+            
+            // Полоска здоровья босса (UI)
+            let activeBoss = entities.find(e => e instanceof Boss);
+            if (activeBoss) {
+                let barW = GAME_WIDTH - 60;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(30, 20, barW, 20);
+                ctx.fillStyle = '#dc2626'; ctx.fillRect(30, 20, barW * (Math.max(0, activeBoss.hp) / activeBoss.maxHp), 20);
+                ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.strokeRect(30, 20, barW, 20);
+                
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Orbitron'; ctx.textAlign = 'center';
+                ctx.fillText(`УГРОЗА ВОЛНЫ ${wave}`, GAME_WIDTH/2, 35);
+            }
+
+            ctx.restore();
+            updateHUD();
+
+            requestAnimationFrame(update);
+        }
+
+        function startGame() {
+            score = 0; sessionCrystals = 0; frames = 0; difficulty = 1; screenShake = 0;
+            wave = 1; waveTimer = 0; isBossActive = false; bossWarningTime = 0;
+            entities = []; projectiles = []; enemyProjectiles = []; particles = []; floatingTexts = [];
+            
+            initStars(); player.reset();
+            
+            document.getElementById('ui-menu').classList.add('hidden');
+            document.getElementById('ui-shop').classList.add('hidden');
+            document.getElementById('ui-gameover').classList.add('hidden');
+            document.getElementById('ui-hud').classList.remove('hidden');
+            
+            currentState = STATES.PLAYING;
+            update();
+        }
+
+        function triggerGameOver() {
+            currentState = STATES.GAMEOVER;
+            screenShake = 30;
+            createExplosion(player.x, player.y, player.skin.color, 50);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; ctx.fillRect(0,0, GAME_WIDTH, GAME_HEIGHT);
+            
+            savedData.crystals += sessionCrystals; saveGame();
+            
+            setTimeout(() => {
+                document.getElementById('ui-hud').classList.add('hidden');
+                document.getElementById('ui-gameover').classList.remove('hidden');
+                document.getElementById('gameover-score').innerText = score;
+                document.getElementById('gameover-crystals').innerText = `+${sessionCrystals} ◈`;
+                document.getElementById('btn-revive').style.display = score > 100 ? 'flex' : 'none'; // Показ кнопки за рекламу
+            }, 1000);
+        }
+
+        function revivePlayer() {
+            const btn = document.getElementById('btn-revive');
+            btn.innerHTML = 'ЗАГРУЗКА РЕКЛАМЫ...'; btn.disabled = true;
+            
+            // Имитация просмотра рекламы Яндекс Игр
+            setTimeout(() => {
+                btn.innerHTML = 'ПРОДОЛЖИТЬ ЗА РЕКЛАМУ'; btn.disabled = false;
+                
+                // Очистка зоны вокруг игрока
+                entities = entities.filter(e => Math.hypot(e.x - player.x, e.y - player.y) > 200);
+                enemyProjectiles = []; // Очищаем снаряды босса, чтобы не умереть мгновенно
+                
+                player.shieldActive = true; player.invulnTime = 120; // Щит и неуязвимость
+                document.getElementById('ui-gameover').classList.add('hidden');
+                document.getElementById('ui-hud').classList.remove('hidden');
+                
+                currentState = STATES.PLAYING; update();
+            }, 1500); 
+        }
+
+        document.getElementById('btn-play').onclick = startGame;
+        document.getElementById('btn-restart').onclick = startGame;
+        document.getElementById('btn-revive').onclick = revivePlayer;
+        
+        document.getElementById('btn-support').onclick = () => {
+            // В реальной игре Яндекс Игр здесь будет вызов ysdk.pay.purchase()
+            const modal = document.getElementById('ui-support-modal');
+            const modalTitle = modal.querySelector('h2');
+            const modalDesc = modal.querySelector('p');
+            const modalBtn = document.getElementById('btn-support-close');
+            
+            if (!savedData.hasDonated) {
+                savedData.crystals += 1000;
+                savedData.hasDonated = true;
+                saveGame();
+                updateGlobalCrystalDisplay();
+                
+                modalTitle.innerText = "СПОНСОРСТВО";
+                modalDesc.innerHTML = 'Спасибо за поддержку игры! Ваш бонус спонсора: <br><br><span class="text-3xl font-bold text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]">+1000 ◈</span>';
+                modalBtn.innerText = "ПОЛУЧИТЬ";
+                
+                document.getElementById('btn-support').innerHTML = 'ПОДДЕРЖАТЬ АВТОРА <span class="text-xs bg-black/60 px-2 py-1 rounded text-emerald-300 border border-emerald-500/30">КУПЛЕНО</span>';
+            } else {
+                modalTitle.innerText = "УЖЕ КУПЛЕНО";
+                modalDesc.innerHTML = 'Спасибо за вашу поддержку! Вы уже получили бонус спонсора ранее.<br><br><span class="text-xl text-cyan-400">Приятной игры!</span>';
+                modalBtn.innerText = "ОТЛИЧНО";
+            }
+            
+            modal.classList.remove('hidden');
+        };
+
+        document.getElementById('btn-support-close').onclick = () => {
+            document.getElementById('ui-support-modal').classList.add('hidden');
+        };
+        
+        document.getElementById('btn-shop').onclick = () => {
+            document.getElementById('ui-menu').classList.add('hidden');
+            document.getElementById('ui-shop').classList.remove('hidden');
+            switchTab('ships');
+            currentState = STATES.SHOP;
+        };
+        
+        document.getElementById('btn-shop-back').onclick = () => {
+            document.getElementById('ui-shop').classList.add('hidden');
+            document.getElementById('ui-menu').classList.remove('hidden');
+            currentState = STATES.MENU;
+        };
+
+        document.getElementById('btn-gameover-menu').onclick = () => {
+            document.getElementById('ui-gameover').classList.add('hidden');
+            document.getElementById('ui-menu').classList.remove('hidden');
+            currentState = STATES.MENU;
+        };
+
+        window.onload = () => {
+            loadSave(); initStars(); drawBackground();
+        };
+
+    </script>
+</body>
+</html>
